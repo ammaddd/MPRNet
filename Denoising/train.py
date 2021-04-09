@@ -107,6 +107,7 @@ eval_now = len(train_loader)//3 - 1
 print(f"\nEval after every {eval_now} Iterations !!!\n")
 mixup = utils.MixUp_AUG()
 
+global_step = 0
 for epoch in range(start_epoch, opt.OPTIM.NUM_EPOCHS + 1):
     epoch_start_time = time.time()
     epoch_loss = 0
@@ -115,6 +116,7 @@ for epoch in range(start_epoch, opt.OPTIM.NUM_EPOCHS + 1):
     model_restoration.train()
     for i, data in enumerate(tqdm(train_loader), 0):
 
+        global_step += 1
         # zero_grad
         for param in model_restoration.parameters():
             param.grad = None
@@ -130,7 +132,7 @@ for epoch in range(start_epoch, opt.OPTIM.NUM_EPOCHS + 1):
             experiment.log_image(restored[0][0].detach().cpu().numpy(),
                                  name='train_restoration',
                                  image_channels="first",
-                                 step=(i+1)*epoch)
+                                 step=global_step)
 
         # Compute loss at each stage
         loss = np.sum([criterion(torch.clamp(restored[j],0,1),target) for j in range(len(restored))])
@@ -138,7 +140,7 @@ for epoch in range(start_epoch, opt.OPTIM.NUM_EPOCHS + 1):
         loss.backward()
         optimizer.step()
         epoch_loss +=loss.item()
-        experiment.log_metric("train_loss", loss.item(), step=(i+1)*epoch,
+        experiment.log_metric("train_loss", loss.item(), step=global_step,
                               epoch=epoch)
 
         #### Evaluation ####
@@ -156,7 +158,7 @@ for epoch in range(start_epoch, opt.OPTIM.NUM_EPOCHS + 1):
                     experiment.log_image(restored[0].detach().cpu().
                                          numpy(), name='val_restoration',
                                          image_channels="first",
-                                         step=(ii+1)*epoch)
+                                         step=ii+(epoch*len(val_loader)))
 
                 for res,tar in zip(restored,target):
                     psnr_val_rgb.append(utils.torchPSNR(res, tar))
